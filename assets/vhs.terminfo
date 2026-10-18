@@ -1,0 +1,7 @@
+# xterm-256color plus explicit truecolor capabilities in the semicolon form.
+# Used only by demo.tape: without them Neovim picks the colon form for
+# xterm-like terminals, which vhs's terminal (xterm.js) misreads.
+xterm-vhs|xterm-256color with semicolon truecolor,
+	use=xterm-256color,
+	setrgbf=\E[38;2;%p1%d;%p2%d;%p3%dm,
+	setrgbb=\E[48;2;%p1%d;%p2%d;%p3%dm,

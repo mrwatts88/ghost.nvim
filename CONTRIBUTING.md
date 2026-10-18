@@ -48,6 +48,7 @@ lua/ghost/
   health.lua    :checkhealth ghost
   cli.lua       entry point for bin/ghost
 bin/ghost       shell CLI (runs headless Neovim)
+assets/         README demo: re-record with `vhs assets/demo.tape`
 ```
 
 ## Adding a backend

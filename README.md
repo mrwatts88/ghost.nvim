@@ -6,6 +6,8 @@ Write a question as a comment that starts with `?`. A read-only answer appears
 under it as ghost text: either the code to write, or a few short steps when the
 answer isn't code. You type it in yourself.
 
+![ghost.nvim answering a Rust question with code and a tmux question with steps](assets/demo.gif)
+
 ```rust
 // ? read the file named by the first argument into a String, exit with a message if it fails
 ┆ let path = args.get(1).unwrap_or_else(|| {
