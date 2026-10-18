@@ -87,15 +87,18 @@ Then run `:checkhealth ghost`.
 
 | Key | Command | What it does |
 | --- | --- | --- |
-| `<leader>ii` | `:Ghost ask` | Ask (or re-ask) the question under the cursor |
+| `<leader>ii` | `:Ghost ask` | Ask the question under the cursor (shows the saved answer if there is one) |
+| `<leader>ia` | `:Ghost all` | Ask every question in the file that has no answer yet |
+| `<leader>ir` | `:Ghost regenerate` | Ask again and replace the saved answer |
 | `<leader>it` | `:Ghost toggle` | Hide or show answers in this buffer, to quiz yourself |
 | `<leader>ie` | `:Ghost expand` | Expand answers longer than `max_lines` |
 | | `:Ghost setup` | Open the setup context that gets sent with questions |
 
-Answers follow their question. They're keyed by the question's text, not its
-line number, so you can move the comment around freely. Edit the question and
-it counts as a new one. When you save, answers whose question is gone are
-removed from `.ghost/`.
+Answers follow their question. They're keyed by the question's text and the
+file's language, not by line or file. You can move a comment anywhere in the
+project and its answer comes with it, with no new request. The same question in
+a Rust file and a Python file gets two separate answers. Edit the question and
+it counts as a new one.
 
 ## Configuration
 
@@ -116,14 +119,17 @@ require("ghost").setup({
   -- Path to the CLI, if it isn't on $PATH under the backend's name
   cmd = nil,
 
-  -- Ask every unanswered question in the file on :w
+  -- Ask every unanswered question in the file on :w (like <leader>ia)
   ask_on_save = false,
   max_lines = 30,
   timeout_ms = 90000,
 
-  -- Set to false and map require("ghost").ask / .toggle / .expand yourself
+  -- Set to false and map require("ghost").ask / .ask_all / .regenerate /
+  -- .toggle / .expand yourself
   keys = {
     ask = "<leader>ii",
+    ask_all = "<leader>ia",
+    regenerate = "<leader>ir",
     toggle = "<leader>it",
     expand = "<leader>ie",
   },
@@ -178,11 +184,17 @@ part of `context` to `false` to leave it out.
 
 ## The `.ghost/` folder
 
-Answers are stored in `<git root>/.ghost/<path>.json`. The files have sorted
-keys and one field per line, so they diff cleanly. **Committing them is
-encouraged:** they become a notebook of how-tos that lives with the code they
-explain. If you'd rather not, add `.ghost/` to `.gitignore`. Files outside a
-git repo are cached in Neovim's cache directory instead.
+Answers are stored in one file per project, `<git root>/.ghost/answers.json`.
+It has sorted keys and one field per line, so it diffs cleanly. **Committing it
+is encouraged:** it becomes a notebook of how-tos for the project, readable top
+to bottom. If you'd rather not, add `.ghost/` to `.gitignore`. Files outside a
+git repo share a store in Neovim's cache directory instead.
+
+Each answer lists the files that ask its question. When you save a file, that
+file is taken off the list of every answer whose question it no longer has, and
+an answer no file asks anymore is deleted. Projects using the older layout (one
+`.ghost/<path>.json` per source file) are converted automatically the first time
+you open them.
 
 ## Shell command
 

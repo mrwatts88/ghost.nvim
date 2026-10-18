@@ -41,7 +41,18 @@ local function comment_end(buf, row, col)
   return math.max(end_row, row)
 end
 
+function M.key(question, ft)
+  return vim.fn.sha256(ft .. "\0" .. question):sub(1, 12)
+end
+
 function M.scan(buf)
+  local ft = vim.bo[buf].filetype
+  -- Bring the tree up to date first: right after an edit it can still be the
+  -- pre-edit tree, and new comment lines wouldn't look like comments yet.
+  -- Incremental, so it only reparses what changed.
+  pcall(function()
+    vim.treesitter.get_parser(buf):parse()
+  end)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local out = {}
   local i = 1
@@ -76,9 +87,11 @@ function M.scan(buf)
       if question ~= "" then
         table.insert(out, {
           question = question,
-          -- Keyed by the question's text, never its line, so answers follow
-          -- the comment when it moves.
-          key = vim.fn.sha256(question):sub(1, 12),
+          filetype = ft,
+          -- Keyed by the question and the language, never the line or file,
+          -- so an answer follows its comment anywhere in the project, but the
+          -- same question in Python and in Rust gets separate answers.
+          key = M.key(question, ft),
           first = i - 1,
           last = j - 1,
           indent = indent,

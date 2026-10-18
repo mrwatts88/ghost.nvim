@@ -28,6 +28,8 @@ M.config = {
   -- Set to false to define your own mappings to require("ghost").ask etc.
   keys = {
     ask = "<leader>ii",
+    ask_all = "<leader>ia",
+    regenerate = "<leader>ir",
     toggle = "<leader>it",
     expand = "<leader>ie",
   },
@@ -136,6 +138,7 @@ local function request(buf, q)
     else
       cache.put(file, q.key, {
         question = q.question,
+        filetype = q.filetype,
         kind = ans.kind,
         lang = ans.lang,
         body = ans.body,
@@ -148,14 +151,52 @@ local function request(buf, q)
   end)
 end
 
--- Ask (or re-ask) the question under the cursor.
-function M.ask()
+local function at_cursor()
   local buf = vim.api.nvim_get_current_buf()
   local q = trigger.at_cursor(buf)
   if not q then
-    return vim.notify("ghost: cursor is not on a `?` comment", vim.log.levels.WARN)
+    vim.notify("ghost: cursor is not on a `?` comment", vim.log.levels.WARN)
+  end
+  return buf, q
+end
+
+-- Ask the question under the cursor, unless it already has an answer.
+function M.ask()
+  local buf, q = at_cursor()
+  if not q then
+    return
+  end
+  local file = file_of(buf)
+  if file and cache.get(file, q.key) then
+    errors[file .. ":" .. q.key] = nil
+    return M.refresh(buf)
   end
   request(buf, q)
+end
+
+-- Ask every question in the buffer that has no answer yet.
+function M.ask_all(buf)
+  buf = buf or vim.api.nvim_get_current_buf()
+  local file = file_of(buf)
+  if not file then
+    return 0
+  end
+  local n = 0
+  for _, q in ipairs(trigger.scan(buf)) do
+    if not cache.get(file, q.key) and not pending[file .. ":" .. q.key] then
+      request(buf, q)
+      n = n + 1
+    end
+  end
+  return n
+end
+
+-- Ask again even though there's an answer, replacing it.
+function M.regenerate()
+  local buf, q = at_cursor()
+  if q then
+    request(buf, q)
+  end
 end
 
 function M.toggle()
@@ -178,11 +219,19 @@ local function on_save(buf)
   local live = {}
   for _, q in ipairs(trigger.scan(buf)) do
     live[q.key] = true
-    if M.config.ask_on_save and not cache.get(file, q.key) then
-      request(buf, q)
-    end
   end
   cache.prune(file, live)
+  if M.config.ask_on_save then
+    M.ask_all(buf)
+  end
+end
+
+local function ask_all_notify()
+  local n = M.ask_all()
+  vim.notify(
+    n == 0 and "ghost: every question here already has an answer"
+      or ("ghost: asking %d question%s"):format(n, n == 1 and "" or "s")
+  )
 end
 
 function M.setup(opts)
@@ -192,6 +241,8 @@ function M.setup(opts)
   local k = M.config.keys
   if k then
     vim.keymap.set("n", k.ask, M.ask, { desc = "Ghost: Ask Question Under Cursor" })
+    vim.keymap.set("n", k.ask_all, ask_all_notify, { desc = "Ghost: Ask All Unanswered in File" })
+    vim.keymap.set("n", k.regenerate, M.regenerate, { desc = "Ghost: Regenerate Answer" })
     vim.keymap.set("n", k.toggle, M.toggle, { desc = "Ghost: Toggle Answers" })
     vim.keymap.set("n", k.expand, M.expand, { desc = "Ghost: Expand Long Answers" })
     pcall(function()
@@ -226,6 +277,10 @@ function M.setup(opts)
     local sub = cmd.args
     if sub == "" or sub == "ask" then
       M.ask()
+    elseif sub == "all" then
+      ask_all_notify()
+    elseif sub == "regenerate" then
+      M.regenerate()
     elseif sub == "toggle" then
       M.toggle()
     elseif sub == "expand" then
@@ -239,9 +294,9 @@ function M.setup(opts)
   end, {
     nargs = "?",
     complete = function()
-      return { "ask", "toggle", "expand", "setup" }
+      return { "ask", "all", "regenerate", "toggle", "expand", "setup" }
     end,
-    desc = "Ghost: ask | toggle | expand | setup",
+    desc = "Ghost: ask | all | regenerate | toggle | expand | setup",
   })
 
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
