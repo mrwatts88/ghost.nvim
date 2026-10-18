@@ -1,0 +1,10 @@
+#!/bin/sh
+# Ask ghost from the shell:  ghost how do I attach to my tmux session
+# Runs your real nvim config headless, so answers use your actual keybindings,
+# aliases and tmux binds. The question goes through an env var, not the
+# command line, so quotes and special characters in it can't break anything.
+if [ $# -eq 0 ]; then
+  echo "usage: ghost <question>" >&2
+  exit 2
+fi
+GHOST_QUESTION="$*" exec nvim --headless -c "lua require('ghost.cli').run()"
